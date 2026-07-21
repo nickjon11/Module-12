@@ -1,4 +1,4 @@
-name: Module 10 CI/CD
+name: Module 12 CI/CD
 
 on:
   push:
@@ -22,17 +22,17 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: module10_test
+          POSTGRES_DB: module12_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd="pg_isready -U postgres -d module10_test"
+          --health-cmd="pg_isready -U postgres -d module12_test"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
 
     env:
-      DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/module10_test
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/module12_test
 
     steps:
       - name: Check out repository
@@ -69,7 +69,6 @@ jobs:
       - name: Sign in to Docker Hub
         uses: docker/login-action@v3
         with:
-        # Insert your own Dockerhub Username and Token. Github does not allow Personal Access so you must use your own.
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
@@ -79,5 +78,5 @@ jobs:
           context: .
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/module-10:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/module-10:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/module-12-api:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/module-12-api:${{ github.sha }}
