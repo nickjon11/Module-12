@@ -2,15 +2,16 @@ from fastapi import Depends, FastAPI, HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app import crud, models, operations, schemas
+from app import crud, operations, schemas
 from app.database import Base, engine, get_db
+from app.security import verify_password
 
 
 Base.metadata.create_all(bind=engine)
 
 
 app = FastAPI(
-    title="Module 10 Secure Calculator API",
+    title="Module 12 User and Calculation API",
     version="1.0.0",
 )
 
@@ -45,6 +46,7 @@ def divide_numbers(a: float, b: float) -> dict[str, float]:
     try:
         result = operations.divide(a, b)
         return {"result": result}
+
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -56,8 +58,22 @@ def divide_numbers(a: float, b: float) -> dict[str, float]:
     "/users",
     response_model=schemas.UserRead,
     status_code=status.HTTP_201_CREATED,
+    include_in_schema=False,
 )
-def create_user(
+def create_user_legacy(
+    user_data: schemas.UserCreate,
+    db: Session = Depends(get_db),
+):
+    return register_user(user_data, db)
+
+
+@app.post(
+    "/users/register",
+    response_model=schemas.UserRead,
+    status_code=status.HTTP_201_CREATED,
+    tags=["Users"],
+)
+def register_user(
     user_data: schemas.UserCreate,
     db: Session = Depends(get_db),
 ):
@@ -93,3 +109,171 @@ def create_user(
             status_code=status.HTTP_409_CONFLICT,
             detail="Username or email already exists.",
         ) from exc
+
+
+@app.post(
+    "/users/login",
+    response_model=schemas.LoginResponse,
+    tags=["Users"],
+)
+def login_user(
+    login_data: schemas.UserLogin,
+    db: Session = Depends(get_db),
+):
+    user = crud.get_user_by_email(
+        db,
+        str(login_data.email),
+    )
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password.",
+        )
+
+    if not verify_password(
+        login_data.password,
+        user.password_hash,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password.",
+        )
+
+    return {
+        "message": "Login successful",
+        "user_id": user.id,
+        "username": user.username,
+    }
+
+
+@app.get(
+    "/calculations",
+    response_model=list[schemas.CalculationRead],
+    tags=["Calculations"],
+)
+def browse_calculations(
+    db: Session = Depends(get_db),
+):
+    return crud.get_calculations(db)
+
+
+@app.get(
+    "/calculations/{calculation_id}",
+    response_model=schemas.CalculationRead,
+    tags=["Calculations"],
+)
+def read_calculation(
+    calculation_id: int,
+    db: Session = Depends(get_db),
+):
+    calculation = crud.get_calculation(
+        db,
+        calculation_id,
+    )
+
+    if calculation is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Calculation not found.",
+        )
+
+    return calculation
+
+
+@app.post(
+    "/calculations",
+    response_model=schemas.CalculationRead,
+    status_code=status.HTTP_201_CREATED,
+    tags=["Calculations"],
+)
+def add_calculation(
+    calculation_data: schemas.CalculationCreate,
+    db: Session = Depends(get_db),
+):
+    if calculation_data.user_id is not None:
+        user = crud.get_user_by_id(
+            db,
+            calculation_data.user_id,
+        )
+
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found.",
+            )
+
+    return crud.create_calculation(
+        db,
+        calculation_data,
+    )
+
+
+@app.put(
+    "/calculations/{calculation_id}",
+    response_model=schemas.CalculationRead,
+    tags=["Calculations"],
+)
+def edit_calculation(
+    calculation_id: int,
+    calculation_data: schemas.CalculationUpdate,
+    db: Session = Depends(get_db),
+):
+    calculation = crud.get_calculation(
+        db,
+        calculation_id,
+    )
+
+    if calculation is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Calculation not found.",
+        )
+
+    if calculation_data.user_id is not None:
+        user = crud.get_user_by_id(
+            db,
+            calculation_data.user_id,
+        )
+
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found.",
+            )
+
+    return crud.update_calculation(
+        db,
+        calculation,
+        calculation_data,
+    )
+
+
+@app.delete(
+    "/calculations/{calculation_id}",
+    response_model=schemas.DeleteResponse,
+    tags=["Calculations"],
+)
+def delete_calculation(
+    calculation_id: int,
+    db: Session = Depends(get_db),
+):
+    calculation = crud.get_calculation(
+        db,
+        calculation_id,
+    )
+
+    if calculation is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Calculation not found.",
+        )
+
+    crud.delete_calculation(
+        db,
+        calculation,
+    )
+
+    return {
+        "message": "Calculation deleted successfully"
+    }

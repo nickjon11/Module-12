@@ -1,28 +1,29 @@
-name: module-11
+name: module-12
 
 services:
   db:
     image: postgres:16
-    container_name: module11-postgres
+    container_name: module12-postgres
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: module11
+      POSTGRES_DB: module12
     ports:
       - "5433:5432"
     volumes:
-      - module11_postgres_data:/var/lib/postgresql/data
+      - module12_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d module11"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d module12"]
       interval: 5s
       timeout: 5s
       retries: 10
 
   api:
     build: .
-    container_name: module11-api
+    image: module-12-api
+    container_name: module12-api
     environment:
-      DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/module11
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@db:5432/module12
     ports:
       - "8001:8000"
     depends_on:
@@ -30,4 +31,4 @@ services:
         condition: service_healthy
 
 volumes:
-  module11_postgres_data:
+  module12_postgres_data:

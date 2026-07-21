@@ -16,9 +16,7 @@ class UserCreate(BaseModel):
         min_length=3,
         max_length=50,
     )
-
     email: EmailStr
-
     password: str = Field(
         min_length=8,
         max_length=128,
@@ -35,6 +33,14 @@ class UserCreate(BaseModel):
         return value
 
 
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str = Field(
+        min_length=8,
+        max_length=128,
+    )
+
+
 class UserRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -42,6 +48,12 @@ class UserRead(BaseModel):
     username: str
     email: EmailStr
     created_at: datetime
+
+
+class LoginResponse(BaseModel):
+    message: str
+    user_id: int
+    username: str
 
 
 class CalculationType(str, Enum):
@@ -55,9 +67,24 @@ class CalculationCreate(BaseModel):
     a: float
     b: float
     type: CalculationType
+    user_id: int | None = None
 
     @model_validator(mode="after")
     def validate_calculation(self) -> "CalculationCreate":
+        if self.type == CalculationType.DIVIDE and self.b == 0:
+            raise ValueError("Cannot divide by zero")
+
+        return self
+
+
+class CalculationUpdate(BaseModel):
+    a: float
+    b: float
+    type: CalculationType
+    user_id: int | None = None
+
+    @model_validator(mode="after")
+    def validate_calculation(self) -> "CalculationUpdate":
         if self.type == CalculationType.DIVIDE and self.b == 0:
             raise ValueError("Cannot divide by zero")
 
@@ -74,3 +101,7 @@ class CalculationRead(BaseModel):
     result: float
     user_id: int | None = None
     created_at: datetime
+
+
+class DeleteResponse(BaseModel):
+    message: str
